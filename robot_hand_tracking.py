@@ -1,0 +1,217 @@
+import argparse
+import sys
+import time
+
+import cv2
+import mediapipe as mp
+import numpy as np
+
+from robot_arm_view import RobotArmIsoView, RobotRollMapper, select_primary_hand
+
+
+HUD_BG = (18, 18, 28)
+HUD_BORDER = (255, 170, 70)
+HUD_TEXT = (245, 247, 255)
+LANDMARK_COLOR = (255, 235, 80)
+CONNECTION_COLOR = (230, 80, 255)
+WRIST_GLOW = (255, 180, 30)
+PRIMARY_HAND_COLOR = (110, 230, 170)
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(
+        description="Hand tracking with a side-by-side robot roll visualization."
+    )
+    parser.add_argument("--camera", type=int, default=0, help="OpenCV camera index.")
+    parser.add_argument("--width", type=int, default=960, help="Requested camera width.")
+    parser.add_argument("--height", type=int, default=540, help="Requested camera height.")
+    parser.add_argument("--max-hands", type=int, default=2, help="Maximum hands to track.")
+    parser.add_argument(
+        "--robot-panel-width",
+        type=int,
+        default=420,
+        help="Width in pixels for the isometric robot panel.",
+    )
+    parser.add_argument(
+        "--roll-limit",
+        type=float,
+        default=70.0,
+        help="Symmetric robot roll limit in degrees.",
+    )
+    parser.add_argument(
+        "--roll-smoothing",
+        type=float,
+        default=0.22,
+        help="Smoothing factor for the robot roll command. Higher is more responsive.",
+    )
+    parser.add_argument(
+        "--roll-deadband",
+        type=float,
+        default=1.5,
+        help="Degrees around neutral to command as zero roll.",
+    )
+    parser.add_argument(
+        "--model-complexity",
+        type=int,
+        default=0,
+        choices=(0, 1),
+        help="0 is faster; 1 may be more accurate.",
+    )
+    return parser.parse_args()
+
+
+def open_camera(camera_index):
+    cap = cv2.VideoCapture(camera_index)
+    if cap.isOpened():
+        return cap
+
+    message = f"Could not open camera index {camera_index}."
+    if sys.platform == "darwin":
+        message += (
+            " macOS is blocking camera access for this terminal/app. "
+            "Enable Camera permission in System Settings > Privacy & Security > Camera, "
+            "then restart the terminal and rerun this script."
+        )
+    else:
+        message += " Try --camera 1 or check camera permissions."
+    raise RuntimeError(message)
+
+
+def draw_hud(frame, fps, has_primary):
+    cv2.rectangle(frame, (12, 12), (472, 58), HUD_BG, -1)
+    cv2.rectangle(frame, (12, 12), (472, 58), HUD_BORDER, 1)
+    status = "ROLL CONTROL" if has_primary else "SHOW HAND TO CONTROL ROLL"
+    status_color = PRIMARY_HAND_COLOR if has_primary else HUD_TEXT
+    cv2.putText(
+        frame,
+        f"FPS {fps:4.1f}",
+        (26, 42),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        0.72,
+        HUD_TEXT,
+        2,
+        cv2.LINE_AA,
+    )
+    cv2.putText(
+        frame,
+        status,
+        (160, 42),
+        cv2.FONT_HERSHEY_SIMPLEX,
+        0.62,
+        status_color,
+        2,
+        cv2.LINE_AA,
+    )
+
+
+def main():
+    args = parse_args()
+    cap = open_camera(args.camera)
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, args.width)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, args.height)
+
+    mp_hands = mp.solutions.hands
+    mp_drawing = mp.solutions.drawing_utils
+    landmark_style = mp_drawing.DrawingSpec(
+        color=LANDMARK_COLOR,
+        thickness=2,
+        circle_radius=3,
+    )
+    connection_style = mp_drawing.DrawingSpec(
+        color=CONNECTION_COLOR,
+        thickness=3,
+        circle_radius=2,
+    )
+
+    robot_mapper = RobotRollMapper(
+        min_roll_deg=-args.roll_limit,
+        max_roll_deg=args.roll_limit,
+        smoothing=args.roll_smoothing,
+        deadband_deg=args.roll_deadband,
+    )
+    robot_view = RobotArmIsoView(width=args.robot_panel_width)
+
+    prev_time = time.perf_counter()
+    fps = 0.0
+
+    with mp_hands.Hands(
+        static_image_mode=False,
+        max_num_hands=args.max_hands,
+        model_complexity=args.model_complexity,
+        min_detection_confidence=0.5,
+        min_tracking_confidence=0.5,
+    ) as hands:
+        while True:
+            ok, frame = cap.read()
+            if not ok:
+                print("Camera frame read failed.")
+                break
+
+            frame = cv2.flip(frame, 1)
+            rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            rgb_frame.flags.writeable = False
+            results = hands.process(rgb_frame)
+            rgb_frame.flags.writeable = True
+
+            primary_hand = None
+            hand_landmarks_list = results.multi_hand_landmarks or []
+            if hand_landmarks_list:
+                primary_hand = select_primary_hand(
+                    hand_landmarks_list,
+                    mp_hands.HandLandmark,
+                )
+
+                for hand_landmarks in hand_landmarks_list:
+                    is_primary = hand_landmarks is primary_hand
+                    mp_drawing.draw_landmarks(
+                        frame,
+                        hand_landmarks,
+                        mp_hands.HAND_CONNECTIONS,
+                        landmark_style,
+                        connection_style,
+                    )
+
+                    wrist = hand_landmarks.landmark[mp_hands.HandLandmark.WRIST]
+                    wrist_xy = (
+                        int(wrist.x * frame.shape[1]),
+                        int(wrist.y * frame.shape[0]),
+                    )
+                    wrist_color = PRIMARY_HAND_COLOR if is_primary else WRIST_GLOW
+                    wrist_radius = 16 if is_primary else 12
+                    wrist_thickness = 3 if is_primary else 2
+                    cv2.circle(
+                        frame,
+                        wrist_xy,
+                        wrist_radius,
+                        wrist_color,
+                        wrist_thickness,
+                        cv2.LINE_AA,
+                    )
+
+            robot_state = robot_mapper.update(primary_hand, mp_hands.HandLandmark)
+            robot_panel = robot_view.draw(frame.shape[0], robot_state)
+
+            now = time.perf_counter()
+            dt = now - prev_time
+            prev_time = now
+            if dt > 0:
+                fps = 0.9 * fps + 0.1 * (1.0 / dt) if fps else 1.0 / dt
+
+            draw_hud(frame, fps, primary_hand is not None)
+            display_frame = np.hstack((frame, robot_panel))
+
+            cv2.imshow("Robot Hand Tracking", display_frame)
+            key = cv2.waitKey(1) & 0xFF
+            if key in (27, ord("q")):
+                break
+            if key == ord("c"):
+                robot_mapper.calibrate_to_current()
+            elif key == ord("r"):
+                robot_mapper.reset()
+
+    cap.release()
+    cv2.destroyAllWindows()
+
+
+if __name__ == "__main__":
+    main()

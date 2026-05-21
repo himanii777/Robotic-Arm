@@ -28,6 +28,27 @@ uv run --no-sync python hand_tracking.py --width 640 --height 360 --max-hands 1
 
 Press `q` or `Esc` to quit.
 
+## Robot Roll View
+
+`robot_hand_tracking.py` opens a side-by-side isometric robot view. The original
+`hand_tracking.py` remains the plain hand-tracking demo.
+
+The control signal intentionally ignores hand translation. Sideways and up/down
+hand motion should not move the robot; only palm roll around the current neutral
+pose changes the motor command.
+
+Controls while running:
+
+- `c` calibrates the current hand pose as neutral roll
+- `r` resets the neutral pose and roll filter
+- `q` or `Esc` quits
+
+Useful options:
+
+```bash
+uv run --no-sync python robot_hand_tracking.py --roll-limit 45 --roll-smoothing 0.16
+```
+
 ## Troubleshooting
 
 If MediaPipe fails with `Output tensor range is required`, make sure the
