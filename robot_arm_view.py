@@ -13,6 +13,7 @@ ROBOT_ORANGE = (64, 180, 255)
 ROBOT_GREEN = (110, 230, 170)
 ROBOT_LIMIT = (82, 95, 120)
 WARNING = (80, 110, 255)
+HANDSHAKE_ROLL_OFFSET_DEG = -90.0
 
 FINGER_CHAINS = (
     ("thumb", ("THUMB_CMC", "THUMB_MCP", "THUMB_IP", "THUMB_TIP")),
@@ -144,8 +145,10 @@ class RobotRollMapper:
         if self.neutral_wrist_yaw_deg is None:
             self.neutral_wrist_yaw_deg = wrist_yaw_deg
 
+        # The camera image is mirrored before MediaPipe runs, so roll deltas need
+        # the opposite sign to make the robot visually mirror the user's wrist.
         target_roll = _clamp(
-            _wrap_degrees(raw_deg - self.neutral_raw_deg),
+            _wrap_degrees(self.neutral_raw_deg - raw_deg),
             self.min_roll_deg,
             self.max_roll_deg,
         )
@@ -404,7 +407,7 @@ class RobotArmIsoView:
         yaw_axis_end = self._project((0.0, 0.0, 2.30), center, scale)
         cv2.arrowedLine(panel, elbow_px, yaw_axis_end, WARNING, 2, cv2.LINE_AA, tipLength=0.18)
 
-        roll = math.radians(roll_deg)
+        roll = math.radians(roll_deg + HANDSHAKE_ROLL_OFFSET_DEG)
         hand_right = self._point_add(
             self._point_scale(right, math.cos(roll)),
             self._point_scale(up, math.sin(roll)),
@@ -470,10 +473,12 @@ class RobotArmIsoView:
         splay = math.radians(base_splay_deg)
         curl_angle = math.radians(curl * curl_angles[segment_index])
 
+        curl_axis = hand_right if finger_name == "thumb" else hand_up
+        curl_sign = 1.0 if finger_name == "thumb" else -1.0
         direction = self._point_add(
             self._point_scale(forward, math.cos(splay) * math.cos(curl_angle)),
             self._point_scale(hand_right, math.sin(splay) * math.cos(curl_angle)),
-            self._point_scale(hand_right, -0.72 * math.sin(curl_angle)),
+            self._point_scale(curl_axis, curl_sign * 0.72 * math.sin(curl_angle)),
         )
         length = max(
             math.sqrt(direction[0] ** 2 + direction[1] ** 2 + direction[2] ** 2),
