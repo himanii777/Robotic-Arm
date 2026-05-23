@@ -7,6 +7,7 @@ The main app, `robot_hand_tracking.py`, shows the camera feed beside an isometri
 - Wrist roll comes from palm orientation.
 - Elbow yaw comes from calibrated horizontal wrist displacement plus wrist/palm yaw.
 - Finger motion only drives a fixed-link finger visualization, so joints keep stable segment lengths instead of stretching.
+- The neutral robot hand is drawn in a vertical handshake position.
 
 ## Requirements
 

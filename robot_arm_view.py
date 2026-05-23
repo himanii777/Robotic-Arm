@@ -23,11 +23,11 @@ FINGER_CHAINS = (
 )
 
 FINGER_RENDER_SPEC = {
-    "thumb": {"base": (-0.42, 0.10), "splay": -44.0, "lengths": (0.24, 0.21, 0.18)},
-    "index": {"base": (-0.28, 0.24), "splay": -9.0, "lengths": (0.27, 0.23, 0.19)},
+    "thumb": {"base": (-0.42, -0.06), "splay": -44.0, "lengths": (0.24, 0.21, 0.18)},
+    "index": {"base": (-0.28, 0.20), "splay": -9.0, "lengths": (0.27, 0.23, 0.19)},
     "middle": {"base": (0.0, 0.28), "splay": 0.0, "lengths": (0.30, 0.25, 0.20)},
-    "ring": {"base": (0.25, 0.24), "splay": 7.0, "lengths": (0.28, 0.23, 0.18)},
-    "pinky": {"base": (0.46, 0.18), "splay": 15.0, "lengths": (0.23, 0.19, 0.16)},
+    "ring": {"base": (0.25, 0.22), "splay": 7.0, "lengths": (0.28, 0.23, 0.18)},
+    "pinky": {"base": (0.46, 0.10), "splay": 15.0, "lengths": (0.23, 0.19, 0.16)},
 }
 
 
@@ -422,11 +422,11 @@ class RobotArmIsoView:
 
         for finger_name, spec in FINGER_RENDER_SPEC.items():
             curl = _clamp(finger_pose.get(finger_name, 0.12), 0.0, 1.0)
-            base_side, base_forward = spec["base"]
+            base_side, base_height = spec["base"]
             base = self._point_add(
                 palm_base,
                 self._point_scale(hand_right, base_side),
-                self._point_scale(forward, base_forward),
+                self._point_scale(hand_up, base_height),
             )
             points = [base]
             for segment_index, length in enumerate(spec["lengths"]):
@@ -448,9 +448,9 @@ class RobotArmIsoView:
 
         wrist_left = self._point_add(palm_base, self._point_scale(hand_right, -0.34))
         wrist_right = self._point_add(palm_base, self._point_scale(hand_right, 0.34))
-        palm_front = self._point_add(palm_base, self._point_scale(forward, 0.28))
+        palm_top = self._point_add(palm_base, self._point_scale(hand_up, 0.34))
         self._draw_segment(panel, wrist_left, wrist_right, center, scale, ROBOT_ORANGE, 6)
-        self._draw_segment(panel, palm_base, palm_front, center, scale, ROBOT_ORANGE, 6)
+        self._draw_segment(panel, palm_base, palm_top, center, scale, ROBOT_ORANGE, 6)
 
     def _finger_segment_direction(
         self,
