@@ -1,60 +1,101 @@
-# Local Hand Tracking Demo
+# Robotic Arm Hand Tracking
 
-Small webcam hand-tracking test using MediaPipe and OpenCV.
+Webcam hand-tracking prototype for controlling and visualizing a robotic arm with MediaPipe and OpenCV.
+
+The main app, `robot_hand_tracking.py`, shows the camera feed beside an isometric robot model. Yaw tracking and finger tracking are intentionally separate:
+
+- Wrist roll comes from palm orientation.
+- Elbow yaw comes from calibrated horizontal wrist displacement plus wrist/palm yaw.
+- Finger motion only drives a fixed-link finger visualization, so joints keep stable segment lengths instead of stretching.
+
+## Requirements
+
+- Python 3.9, 3.10, or 3.11
+- A webcam
+- `uv` for environment setup
+
+## Install `uv`
+
+macOS/Linux:
+
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
+
+Windows PowerShell:
+
+```powershell
+powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+```
+
+After installing, restart the terminal if `uv` is not found immediately.
 
 ## Setup
 
 ```bash
+git clone https://github.com/himanii777/Robotic-Arm.git
+cd Robotic-Arm
 uv sync
 ```
 
-## Run
+## Run The Robot View
+
+```bash
+uv run --no-sync python robot_hand_tracking.py
+```
+
+Controls while running:
+
+- `c` calibrates the current hand pose as neutral roll/yaw
+- `r` resets neutral pose and filters
+- `q` or `Esc` quits
+
+Useful tuning example:
+
+```bash
+uv run --no-sync python robot_hand_tracking.py \
+  --roll-limit 45 \
+  --yaw-limit 50 \
+  --yaw-translation-gain 130 \
+  --yaw-wrist-gain 0.8 \
+  --yaw-smoothing 0.12 \
+  --finger-smoothing 0.06
+```
+
+## Run Basic Hand Tracking
 
 ```bash
 uv run --no-sync python hand_tracking.py
 ```
 
-If the camera does not open:
+If the default camera does not open:
 
 ```bash
-uv run --no-sync python hand_tracking.py --camera 1
+uv run --no-sync python robot_hand_tracking.py --camera 1
 ```
 
-For faster testing on weaker machines:
+For faster testing on slower machines:
 
 ```bash
-uv run --no-sync python hand_tracking.py --width 640 --height 360 --max-hands 1
+uv run --no-sync python robot_hand_tracking.py --width 640 --height 360 --max-hands 1
 ```
 
-Press `q` or `Esc` to quit.
+## Camera Permissions
 
-## Robot Roll View
+On macOS, the terminal app may need camera permission:
 
-`robot_hand_tracking.py` opens a side-by-side isometric robot view. The original
-`hand_tracking.py` remains the plain hand-tracking demo.
-
-The control signal intentionally ignores hand translation. Sideways and up/down
-hand motion should not move the robot; only palm roll around the current neutral
-pose changes the motor command.
-
-Controls while running:
-
-- `c` calibrates the current hand pose as neutral roll
-- `r` resets the neutral pose and roll filter
-- `q` or `Esc` quits
-
-Useful options:
-
-```bash
-uv run --no-sync python robot_hand_tracking.py --roll-limit 45 --roll-smoothing 0.16
-```
+1. Open System Settings.
+2. Go to Privacy & Security > Camera.
+3. Enable camera access for Terminal, iTerm, VS Code, or whichever app is launching the script.
+4. Restart that app and rerun the command.
 
 ## Troubleshooting
 
-If MediaPipe fails with `Output tensor range is required`, make sure the
-environment is using `mediapipe==0.10.9`:
+If MediaPipe fails with `Output tensor range is required`, verify the pinned version:
 
 ```bash
 uv sync
 uv run --no-sync python -c "import mediapipe as mp; print(mp.__version__)"
 ```
+
+The expected version is `0.10.9`.

@@ -20,7 +20,7 @@ PRIMARY_HAND_COLOR = (110, 230, 170)
 
 def parse_args():
     parser = argparse.ArgumentParser(
-        description="Hand tracking with a side-by-side robot roll visualization."
+        description="Hand tracking with a side-by-side robot arm visualization."
     )
     parser.add_argument("--camera", type=int, default=0, help="OpenCV camera index.")
     parser.add_argument("--width", type=int, default=960, help="Requested camera width.")
@@ -39,10 +39,46 @@ def parse_args():
         help="Symmetric robot roll limit in degrees.",
     )
     parser.add_argument(
+        "--yaw-limit",
+        type=float,
+        default=60.0,
+        help="Symmetric elbow yaw limit in degrees.",
+    )
+    parser.add_argument(
+        "--yaw-gain",
+        type=float,
+        default=1.0,
+        help="Overall multiplier applied after translation and wrist yaw are combined.",
+    )
+    parser.add_argument(
+        "--yaw-translation-gain",
+        type=float,
+        default=140.0,
+        help="Degrees of elbow yaw per full-frame horizontal wrist displacement.",
+    )
+    parser.add_argument(
+        "--yaw-wrist-gain",
+        type=float,
+        default=0.85,
+        help="Multiplier from wrist/palm yaw angle to elbow yaw.",
+    )
+    parser.add_argument(
         "--roll-smoothing",
         type=float,
         default=0.22,
         help="Smoothing factor for the robot roll command. Higher is more responsive.",
+    )
+    parser.add_argument(
+        "--yaw-smoothing",
+        type=float,
+        default=0.14,
+        help="Smoothing factor for elbow yaw. Lower is steadier.",
+    )
+    parser.add_argument(
+        "--finger-smoothing",
+        type=float,
+        default=0.08,
+        help="Smoothing factor for displayed robot fingers. Lower is steadier.",
     )
     parser.add_argument(
         "--roll-deadband",
@@ -80,7 +116,7 @@ def open_camera(camera_index):
 def draw_hud(frame, fps, has_primary):
     cv2.rectangle(frame, (12, 12), (472, 58), HUD_BG, -1)
     cv2.rectangle(frame, (12, 12), (472, 58), HUD_BORDER, 1)
-    status = "ROLL CONTROL" if has_primary else "SHOW HAND TO CONTROL ROLL"
+    status = "ROLL + ELBOW YAW" if has_primary else "SHOW HAND TO CONTROL ARM"
     status_color = PRIMARY_HAND_COLOR if has_primary else HUD_TEXT
     cv2.putText(
         frame,
@@ -126,7 +162,14 @@ def main():
     robot_mapper = RobotRollMapper(
         min_roll_deg=-args.roll_limit,
         max_roll_deg=args.roll_limit,
+        min_yaw_deg=-args.yaw_limit,
+        max_yaw_deg=args.yaw_limit,
+        yaw_gain=args.yaw_gain,
+        yaw_translation_gain=args.yaw_translation_gain,
+        yaw_wrist_gain=args.yaw_wrist_gain,
         smoothing=args.roll_smoothing,
+        yaw_smoothing=args.yaw_smoothing,
+        finger_smoothing=args.finger_smoothing,
         deadband_deg=args.roll_deadband,
     )
     robot_view = RobotArmIsoView(width=args.robot_panel_width)

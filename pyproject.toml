@@ -1,7 +1,7 @@
 [project]
-name = "local-hand-tracking"
+name = "robotic-arm-hand-tracking"
 version = "0.1.0"
-description = "Small webcam hand-tracking demo using MediaPipe and OpenCV."
+description = "Webcam hand-tracking prototype for robotic arm visualization and control."
 readme = "README.md"
 requires-python = ">=3.9,<3.12"
 dependencies = [
