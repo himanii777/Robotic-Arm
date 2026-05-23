@@ -90,7 +90,7 @@ class RobotRollMapper:
         yaw_wrist_gain=0.85,
         smoothing=0.22,
         yaw_smoothing=None,
-        finger_smoothing=0.10,
+        finger_smoothing=0.35,
         deadband_deg=1.5,
     ):
         self.min_roll_deg = float(min_roll_deg)
@@ -280,6 +280,8 @@ def extract_finger_pose(hand_landmarks, hand_enum):
 
 def estimate_finger_curl(finger_name, points):
     base = points[0]
+    pip = points[1]
+    dip = points[2]
     tip = points[-1]
     chain_len = 0.0
     for start, end in zip(points, points[1:]):
@@ -287,15 +289,36 @@ def estimate_finger_curl(finger_name, points):
 
     direct_len = math.hypot(tip[0] - base[0], tip[1] - base[1])
     straightness = direct_len / max(chain_len, 1e-6)
+    bend = (
+        joint_curl(base, pip, dip)
+        + joint_curl(pip, dip, tip)
+    ) / 2.0
 
     if finger_name == "thumb":
-        extension = _clamp((direct_len - 0.18) / 0.78, 0.0, 1.0)
+        extension = _clamp((direct_len - 0.12) / 0.62, 0.0, 1.0)
+        raw_curl = max(1.0 - extension, bend)
     else:
         reach = tip[1] - base[1]
-        reach_score = _clamp((reach - 0.12) / 0.95, 0.0, 1.0)
-        extension = 0.65 * reach_score + 0.35 * straightness
+        reach_curl = 1.0 - _clamp((reach - 0.16) / 0.78, 0.0, 1.0)
+        straight_curl = 1.0 - _clamp(straightness, 0.0, 1.0)
+        raw_curl = max(reach_curl, bend, straight_curl)
 
-    return 1.0 - _clamp(extension, 0.0, 1.0)
+    return _clamp(raw_curl * 1.35, 0.0, 1.0)
+
+
+def joint_curl(a, b, c):
+    first = (a[0] - b[0], a[1] - b[1])
+    second = (c[0] - b[0], c[1] - b[1])
+    first_len = math.hypot(first[0], first[1])
+    second_len = math.hypot(second[0], second[1])
+    if first_len < 1e-6 or second_len < 1e-6:
+        return 0.0
+
+    dot = (
+        first[0] * second[0] + first[1] * second[1]
+    ) / (first_len * second_len)
+    angle = math.degrees(math.acos(_clamp(dot, -1.0, 1.0)))
+    return _clamp((180.0 - angle) / 95.0, 0.0, 1.0)
 
 
 def smooth_finger_pose(previous, current, smoothing):

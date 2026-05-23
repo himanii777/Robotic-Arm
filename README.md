@@ -59,7 +59,7 @@ uv run --no-sync python robot_hand_tracking.py \
   --yaw-translation-gain 130 \
   --yaw-wrist-gain 0.8 \
   --yaw-smoothing 0.12 \
-  --finger-smoothing 0.06
+  --finger-smoothing 0.35
 ```
 
 ## Run Basic Hand Tracking

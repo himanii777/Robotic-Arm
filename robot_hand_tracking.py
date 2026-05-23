@@ -77,8 +77,8 @@ def parse_args():
     parser.add_argument(
         "--finger-smoothing",
         type=float,
-        default=0.08,
-        help="Smoothing factor for displayed robot fingers. Lower is steadier.",
+        default=0.35,
+        help="Smoothing factor for displayed robot fingers. Higher is more responsive.",
     )
     parser.add_argument(
         "--roll-deadband",
