@@ -422,6 +422,7 @@ class RobotArmIsoView:
 
         for finger_name, spec in FINGER_RENDER_SPEC.items():
             curl = _clamp(finger_pose.get(finger_name, 0.12), 0.0, 1.0)
+            visual_curl = visual_finger_curl(finger_name, curl)
             base_side, base_height = spec["base"]
             base = self._point_add(
                 palm_base,
@@ -433,7 +434,7 @@ class RobotArmIsoView:
                 direction = self._finger_segment_direction(
                     finger_name,
                     spec["splay"],
-                    curl,
+                    visual_curl,
                     segment_index,
                     forward,
                     hand_right,
@@ -514,3 +515,8 @@ class RobotArmIsoView:
         cv2.putText(panel, f"yaw command:  {yaw:+05.1f} deg", (24, 176), cv2.FONT_HERSHEY_SIMPLEX, 0.58, PANEL_TEXT, 2, cv2.LINE_AA)
         cv2.putText(panel, "vertical translation locked", (24, 210), cv2.FONT_HERSHEY_SIMPLEX, 0.50, PANEL_MUTED, 1, cv2.LINE_AA)
         cv2.putText(panel, "c calibrate   r reset", (24, panel.shape[0] - 28), cv2.FONT_HERSHEY_SIMPLEX, 0.50, PANEL_MUTED, 1, cv2.LINE_AA)
+
+
+def visual_finger_curl(finger_name, curl):
+    neutral_slack = 0.26 if finger_name == "thumb" else 0.22
+    return _clamp((curl - neutral_slack) / (1.0 - neutral_slack), 0.0, 1.0)
