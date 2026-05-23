@@ -471,9 +471,9 @@ class RobotArmIsoView:
         curl_angle = math.radians(curl * curl_angles[segment_index])
 
         direction = self._point_add(
-            self._point_scale(forward, math.cos(splay) * math.cos(curl_angle)),
+            self._point_scale(hand_up, math.cos(splay) * math.cos(curl_angle)),
             self._point_scale(hand_right, math.sin(splay) * math.cos(curl_angle)),
-            self._point_scale(hand_up, -0.72 * math.sin(curl_angle)),
+            self._point_scale(forward, -0.72 * math.sin(curl_angle)),
         )
         length = max(
             math.sqrt(direction[0] ** 2 + direction[1] ** 2 + direction[2] ** 2),
