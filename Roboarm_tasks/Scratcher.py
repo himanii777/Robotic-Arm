@@ -1,38 +1,22 @@
-from task_runtime import (
-    build_parser,
-    camera_alignment_preview,
-    clamp,
-    make_controller,
-    resolve_mode,
-)
+from task_runtime import build_parser, clamp, make_controller, resolve_mode
 
 
-MODES = {"scratch", "left", "right", "interactive", "demo"}
+MODES = {"do_task", "default", "interactive"}
 
 
-def scratch_at(controller, yaw=0.0, cycles=5):
-    controller.pose("closed_grab", "scratch fingers ready", {"yaw": yaw, "wrist_roll": 0.0}, 0.45)
+def scratch_motion(controller, center_yaw=0.0, cycles=6):
+    center_yaw = clamp(center_yaw, -55.0, 55.0)
+    controller.pose("half_close", "scratch fingers ready", {"wrist": 90.0, "yaw": center_yaw}, 0.75)
     for _ in range(cycles):
-        controller.move("scratch down", {"yaw": yaw, "wrist_pitch": -30.0}, 0.22)
-        controller.move("scratch up", {"yaw": yaw, "wrist_pitch": 4.0}, 0.22)
+        controller.move("scratch yaw left", {"yaw": clamp(center_yaw - 18.0, -70.0, 70.0), "wrist": 90.0}, 0.24)
+        controller.move("scratch yaw right", {"yaw": clamp(center_yaw + 18.0, -70.0, 70.0), "wrist": 90.0}, 0.24)
+    controller.move("center scratch", {"yaw": center_yaw, "wrist": 90.0}, 0.28)
 
 
-def left(controller):
-    controller.say("More left.")
-    scratch_at(controller, yaw=-30.0, cycles=4)
-    controller.reset()
-
-
-def right(controller):
-    controller.say("More right.")
-    scratch_at(controller, yaw=30.0, cycles=4)
-    controller.reset()
-
-
-def scratch(controller):
+def do_task(controller):
     controller.say("Back scratch bot engaged.")
-    scratch_at(controller, yaw=0.0, cycles=6)
-    controller.reset()
+    scratch_motion(controller, center_yaw=0.0, cycles=7)
+    controller.pause(0.7, "hold scratch position")
 
 
 def interactive(controller):
@@ -54,43 +38,38 @@ def interactive(controller):
         elif command not in ("", "scratch"):
             print("Commands: scratch, left, right, center, done")
             continue
-        scratch_at(controller, yaw=yaw, cycles=3)
+        scratch_motion(controller, center_yaw=yaw, cycles=3)
+
+
+def return_default(controller):
+    controller.say("Returning to default.")
     controller.reset()
 
 
-def demo(controller):
-    scratch(controller)
-    controller.pause(0.6, "user says more left")
-    left(controller)
-    controller.pause(0.6, "user says more right")
-    right(controller)
-
-
 def main():
-    parser = build_parser("Back scratcher demo routines.", MODES, "interactive")
+    parser = build_parser("Wrist-rotated yaw scratcher routine.", MODES, "do_task")
     args = parser.parse_args()
     mode = resolve_mode(args, MODES)
-    camera_alignment_preview(
-        args.camera,
-        args.width,
-        args.height,
-        seconds=2.0,
-        preview=not args.no_preview,
-        label="align back scratch shot",
-    )
     controller = make_controller(args, "Scratcher")
     if not args.skip_countdown:
         controller.countdown(mode)
 
-    actions = {
-        "scratch": scratch,
-        "left": left,
-        "right": right,
-        "interactive": interactive,
-        "demo": demo,
-    }
-    actions[mode](controller)
+    if mode == "do_task":
+        do_task(controller)
+    elif mode == "interactive":
+        interactive(controller)
+    elif mode == "default":
+        return_default(controller)
 
 
 if __name__ == "__main__":
     main()
+
+
+# /*
+# Undo/default code:
+# def undo_task(controller):
+#     controller.reset()
+# Run it with:
+# python Roboarm_tasks\Scratcher.py --mode default --driver ble --no-preview
+# */

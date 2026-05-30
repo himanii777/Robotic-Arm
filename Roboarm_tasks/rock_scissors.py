@@ -9,8 +9,35 @@ from task_runtime import (
 )
 
 
-MODES = {"play", "gesture", "robot_rock", "robot_paper", "robot_scissors"}
+MODES = {
+    "do_task",
+    "default",
+    "rock",
+    "paper",
+    "scissor",
+    "scissors",
+    "play",
+    "gesture",
+    "robot_rock",
+    "robot_paper",
+    "robot_scissors",
+}
 MOVES = ("rock", "paper", "scissors")
+MOVE_ALIASES = {
+    "rock": "rock",
+    "paper": "paper",
+    "scissor": "scissors",
+    "scissors": "scissors",
+}
+
+
+def normalize_robot_move(value):
+    move = value.strip().lower().replace("-", "_")
+    if move.startswith("robot_"):
+        move = move.replace("robot_", "", 1)
+    if move not in MOVE_ALIASES:
+        raise SystemExit("Unknown RPS move '{}'. Use rock, paper, or scissor.".format(value))
+    return MOVE_ALIASES[move]
 
 
 def distance(a, b):
@@ -111,11 +138,11 @@ def detect_player_move(args, seconds=4.0):
 
 def robot_show(controller, move):
     if move == "rock":
-        controller.pose("rock", "robot shows rock", {"wrist_pitch": 4.0}, 0.45)
+        controller.pose("rock", "robot shows rock", {"wrist": 4.0}, 0.45)
     elif move == "paper":
-        controller.pose("paper", "robot shows paper", {"wrist_pitch": 4.0}, 0.45)
+        controller.pose("paper", "robot shows paper", {"wrist": 4.0}, 0.45)
     elif move == "scissors":
-        controller.pose("scissors", "robot shows scissors", {"wrist_pitch": 4.0}, 0.45)
+        controller.pose("scissors", "robot shows scissors", {"wrist": 4.0}, 0.45)
 
 
 def winner(player, robot):
@@ -170,10 +197,32 @@ def gesture_only(args):
     print("[gesture] {}".format(player or "unknown"))
 
 
+def staged_round(controller, move):
+    controller.say("Rock paper scissors. Shoot.")
+    for label in ("rock", "paper", "scissors", "shoot"):
+        print("[game] {}".format(label))
+        controller.beep(520 if label != "shoot" else 760, 120)
+        controller.pause(0.32, label)
+    robot_show(controller, move)
+    controller.say("Robot chose {}.".format(move))
+    controller.pause(0.8, "hold game pose")
+
+
 def main():
     parser = build_parser("Rock paper scissors demo.", MODES, "play")
+    parser.add_argument(
+        "--move",
+        default="scissor",
+        help="Hard-coded robot move for do-task mode: rock, paper, or scissor.",
+    )
     args = parser.parse_args()
     mode = resolve_mode(args, MODES)
+    robot_move = normalize_robot_move(args.move)
+
+    if mode in MOVE_ALIASES:
+        robot_move = normalize_robot_move(mode)
+    elif mode.startswith("robot_"):
+        robot_move = normalize_robot_move(mode)
 
     if mode == "gesture":
         gesture_only(args)
@@ -183,16 +232,25 @@ def main():
     if not args.skip_countdown:
         controller.countdown(mode)
 
-    if mode == "play":
+    if mode == "do_task":
+        staged_round(controller, robot_move)
+    elif mode == "default":
+        controller.reset()
+    elif mode == "play":
         play(controller, args)
-    elif mode == "robot_rock":
-        robot_show(controller, "rock")
-    elif mode == "robot_paper":
-        robot_show(controller, "paper")
-    elif mode == "robot_scissors":
-        robot_show(controller, "scissors")
-    controller.reset()
+    elif mode in ("rock", "paper", "scissor", "scissors", "robot_rock", "robot_paper", "robot_scissors"):
+        robot_show(controller, robot_move)
+        controller.pause(0.8, "hold game pose")
 
 
 if __name__ == "__main__":
     main()
+
+
+# /*
+# Undo/default code:
+# def undo_task(controller):
+#     controller.reset()
+# Run it with:
+# python Roboarm_tasks\rock_scissors.py --mode default --driver ble --no-preview
+# */

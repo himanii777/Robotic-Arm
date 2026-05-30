@@ -35,7 +35,7 @@ Pybricks firmware must be installed on the physical hub through Pybricks Code:
 Then run a laptop task with BLE:
 
 ```powershell
-python Roboarm_tasks\Handshake.py --mode fist-bump --driver ble
+python Roboarm_tasks\Handshake.py --mode do-task --driver ble
 ```
 
 If the hub name is different:
@@ -46,13 +46,40 @@ python Roboarm_tasks\Handshake.py --mode fist-bump --driver ble --hub-name "Your
 
 ## Port Limit Warning
 
-One SPIKE Prime hub has six motor ports. The default receiver maps:
+One SPIKE Prime hub has six motor ports. The default receiver now maps your
+calibrated build:
 
-- Port A: thumb
-- Port B: index
-- Port C: middle
+- Port A: wrist
+- Port B: thumb
+- Port C: index
 - Port D: ring
 - Port E: pinky
-- Port F: yaw
+- Port F: middle
 
-Your full design mentions five finger motors plus yaw plus wrist pitch/roll, which is eight motors if all are independent. For all eight, use two hubs or mechanically link some axes.
+That uses all six ports. The laptop timeline still includes a `yaw` value, but
+the included hub receiver ignores it unless yaw is moved to a second hub/box or
+you remap one of the ports.
+
+## Calibrated Finger Angles
+
+Default is fingers open and palm facing upward:
+
+```python
+FULL_CLOSE_ANGLES = {
+    "thumb": 240,
+    "index": 520,
+    "middle": 700,
+    "ring": 540,
+    "pinky": -240,
+}
+```
+
+Most staged tasks now use:
+
+```powershell
+python Roboarm_tasks\Watering.py --mode do-task --driver ble
+python Roboarm_tasks\Watering.py --mode default --driver ble
+```
+
+`do-task` performs the shot and holds the useful final pose. `default` opens the
+fingers and returns the wrist/yaw timeline to zero.

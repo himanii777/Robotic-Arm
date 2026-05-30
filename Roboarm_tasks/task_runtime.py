@@ -13,40 +13,59 @@ from typing import Dict, Iterable, Mapping, Optional, Sequence, Tuple
 TASK_DIR = Path(__file__).resolve().parent
 DEFAULT_SONGS_DIR = TASK_DIR / "songs"
 
-# Calibrate these numbers on the physical hand before filming. They are deliberately
-# conservative LEGO-safe starting points, not final motor limits.
+FULL_CLOSE_ANGLES = {
+    "thumb": 240.0,
+    "index": 520.0,
+    "middle": 700.0,
+    "ring": 540.0,
+    "pinky": -240.0,
+}
+
+HALF_CLOSE_ANGLES = {
+    finger: angle * 0.5 for finger, angle in FULL_CLOSE_ANGLES.items()
+}
+
+CUP_GRIP_ANGLES = dict(HALF_CLOSE_ANGLES)
+CUP_GRIP_ANGLES["pinky"] = FULL_CLOSE_ANGLES["pinky"]
+
 MOTOR_NAMES = (
     "thumb",
     "index",
     "middle",
     "ring",
     "pinky",
+    "wrist",
     "yaw",
-    "wrist_pitch",
-    "wrist_roll",
 )
 
 SAFE_LIMITS = {
-    "thumb": (-5.0, 115.0),
-    "index": (-5.0, 115.0),
-    "middle": (-5.0, 115.0),
-    "ring": (-5.0, 115.0),
-    "pinky": (-5.0, 115.0),
-    "yaw": (-70.0, 70.0),
-    "wrist_pitch": (-55.0, 70.0),
-    "wrist_roll": (-80.0, 80.0),
+    "thumb": (-20.0, 270.0),
+    "index": (-20.0, 570.0),
+    "middle": (-20.0, 750.0),
+    "ring": (-20.0, 590.0),
+    "pinky": (-270.0, 20.0),
+    "wrist": (-90.0, 90.0),
+    "yaw": (-90.0, 90.0),
 }
 
 BASE_POSES = {
-    "neutral": {
-        "thumb": 20.0,
-        "index": 15.0,
-        "middle": 15.0,
-        "ring": 15.0,
-        "pinky": 15.0,
+    "default": {
+        "thumb": 0.0,
+        "index": 0.0,
+        "middle": 0.0,
+        "ring": 0.0,
+        "pinky": 0.0,
+        "wrist": 0.0,
         "yaw": 0.0,
-        "wrist_pitch": 0.0,
-        "wrist_roll": 0.0,
+    },
+    "neutral": {
+        "thumb": 0.0,
+        "index": 0.0,
+        "middle": 0.0,
+        "ring": 0.0,
+        "pinky": 0.0,
+        "wrist": 0.0,
+        "yaw": 0.0,
     },
     "open_hand": {
         "thumb": 0.0,
@@ -56,53 +75,58 @@ BASE_POSES = {
         "pinky": 0.0,
     },
     "loose_open": {
-        "thumb": 10.0,
-        "index": 8.0,
-        "middle": 8.0,
-        "ring": 8.0,
-        "pinky": 8.0,
+        "thumb": 24.0,
+        "index": 52.0,
+        "middle": 70.0,
+        "ring": 54.0,
+        "pinky": -24.0,
+    },
+    "half_close": dict(HALF_CLOSE_ANGLES),
+    "cup_grip": dict(CUP_GRIP_ANGLES),
+    "pinky_closed": {
+        "thumb": 0.0,
+        "index": 0.0,
+        "middle": 0.0,
+        "ring": 0.0,
+        "pinky": FULL_CLOSE_ANGLES["pinky"],
     },
     "fist": {
-        "thumb": 82.0,
-        "index": 95.0,
-        "middle": 96.0,
-        "ring": 94.0,
-        "pinky": 92.0,
+        **FULL_CLOSE_ANGLES,
     },
     "closed_grab": {
-        "thumb": 72.0,
-        "index": 78.0,
-        "middle": 80.0,
-        "ring": 80.0,
-        "pinky": 78.0,
+        "thumb": 168.0,
+        "index": 364.0,
+        "middle": 490.0,
+        "ring": 378.0,
+        "pinky": -168.0,
     },
     "pinch": {
-        "thumb": 56.0,
-        "index": 58.0,
-        "middle": 12.0,
-        "ring": 18.0,
-        "pinky": 20.0,
+        "thumb": 132.0,
+        "index": 286.0,
+        "middle": 70.0,
+        "ring": 54.0,
+        "pinky": -24.0,
     },
     "point": {
-        "thumb": 52.0,
+        "thumb": 120.0,
         "index": 0.0,
-        "middle": 92.0,
-        "ring": 94.0,
-        "pinky": 92.0,
+        "middle": FULL_CLOSE_ANGLES["middle"],
+        "ring": FULL_CLOSE_ANGLES["ring"],
+        "pinky": FULL_CLOSE_ANGLES["pinky"],
     },
     "thumbs_up": {
         "thumb": 0.0,
-        "index": 94.0,
-        "middle": 95.0,
-        "ring": 95.0,
-        "pinky": 92.0,
+        "index": FULL_CLOSE_ANGLES["index"],
+        "middle": FULL_CLOSE_ANGLES["middle"],
+        "ring": FULL_CLOSE_ANGLES["ring"],
+        "pinky": FULL_CLOSE_ANGLES["pinky"],
     },
     "scissors": {
-        "thumb": 72.0,
+        "thumb": FULL_CLOSE_ANGLES["thumb"],
         "index": 0.0,
         "middle": 0.0,
-        "ring": 94.0,
-        "pinky": 92.0,
+        "ring": FULL_CLOSE_ANGLES["ring"],
+        "pinky": FULL_CLOSE_ANGLES["pinky"],
     },
     "paper": {
         "thumb": 0.0,
@@ -112,17 +136,26 @@ BASE_POSES = {
         "pinky": 0.0,
     },
     "rock": {
-        "thumb": 82.0,
-        "index": 95.0,
-        "middle": 96.0,
-        "ring": 94.0,
-        "pinky": 92.0,
+        **FULL_CLOSE_ANGLES,
     },
+}
+
+TARGET_ALIASES = {
+    "wrist_pitch": "wrist",
+    "wrist_roll": "wrist",
 }
 
 
 def clamp(value, low, high):
     return max(low, min(high, value))
+
+
+def canonicalize_targets(targets):
+    canonical = {}
+    for name, value in dict(targets or {}).items():
+        canonical_name = TARGET_ALIASES.get(name, name)
+        canonical[canonical_name] = value
+    return canonical
 
 
 def normalize_mode(value):
@@ -333,7 +366,7 @@ class ArmController:
                 pass
 
     def move(self, label, targets=None, duration=0.45, note=None):
-        targets = dict(targets or {})
+        targets = canonicalize_targets(targets)
         for motor_name in targets:
             if motor_name not in SAFE_LIMITS:
                 raise ValueError("Unknown motor '{}'".format(motor_name))
@@ -386,7 +419,7 @@ class ArmController:
                 self.pause(step.hold, step.label + " hold")
 
     def reset(self):
-        self.pose("neutral", "return neutral", duration=0.6)
+        self.pose("default", "return default", duration=0.6)
 
     def close(self):
         if self.bridge is not None:

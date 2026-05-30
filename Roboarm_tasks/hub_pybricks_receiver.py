@@ -6,9 +6,18 @@ Code, start the program with the hub button, then run a task script with:
 
     python Roboarm_tasks/Handshake.py --mode fist-bump --driver ble
 
-One SPIKE Prime hub has six ports, so this default mapping drives the five
-fingers plus yaw. If your wrist motors are on a second hub, copy this file to
-that hub and change MOTOR_PORTS to include wrist_pitch/wrist_roll instead.
+This default mapping matches the calibrated build:
+
+- wrist: Port A
+- thumb: Port B
+- index: Port C
+- ring: Port D
+- pinky: Port E
+- middle: Port F
+
+That uses all six SPIKE Prime ports. Yaw commands are still accepted from the
+laptop timeline, but this receiver ignores them unless you add a second hub or
+remap one port to yaw.
 """
 
 from pybricks.hubs import PrimeHub
@@ -23,15 +32,13 @@ from uselect import poll
 hub = PrimeHub()
 
 MOTOR_PORTS = {
-    "thumb": Port.A,
-    "index": Port.B,
-    "middle": Port.C,
+    "wrist": Port.A,
+    "thumb": Port.B,
+    "index": Port.C,
     "ring": Port.D,
     "pinky": Port.E,
-    "yaw": Port.F,
-    # A single SPIKE Prime hub has no extra ports for these:
-    # "wrist_pitch": Port.A,
-    # "wrist_roll": Port.B,
+    "middle": Port.F,
+    # "yaw": Port.A,  # Use this on a second hub/box if yaw has its own hub.
 }
 
 MOTOR_ORDER = (
@@ -40,9 +47,8 @@ MOTOR_ORDER = (
     "middle",
     "ring",
     "pinky",
+    "wrist",
     "yaw",
-    "wrist_pitch",
-    "wrist_roll",
 )
 
 MOTOR_SPEED = {
@@ -51,9 +57,8 @@ MOTOR_SPEED = {
     "middle": 500,
     "ring": 500,
     "pinky": 500,
+    "wrist": 240,
     "yaw": 260,
-    "wrist_pitch": 260,
-    "wrist_roll": 260,
 }
 
 motors = {}
@@ -89,7 +94,7 @@ def stop_all():
 
 
 def handle_motion(parts):
-    if len(parts) < 10:
+    if len(parts) < 2 + len(MOTOR_ORDER):
         write_status("ERR short\n")
         return
 
