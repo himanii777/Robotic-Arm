@@ -12,7 +12,6 @@ MOTOR_ORDER = (
     "ring",
     "pinky",
     "yaw",
-    "wrist_pitch",
     "wrist_roll",
 )
 

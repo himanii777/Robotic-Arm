@@ -22,7 +22,6 @@ MOTOR_NAMES = (
     "ring",
     "pinky",
     "yaw",
-    "wrist_pitch",
     "wrist_roll",
 )
 
@@ -33,7 +32,6 @@ SAFE_LIMITS = {
     "ring": (-5.0, 115.0),
     "pinky": (-5.0, 115.0),
     "yaw": (-70.0, 70.0),
-    "wrist_pitch": (-55.0, 70.0),
     "wrist_roll": (-80.0, 80.0),
 }
 
@@ -45,7 +43,6 @@ BASE_POSES = {
         "ring": 15.0,
         "pinky": 15.0,
         "yaw": 0.0,
-        "wrist_pitch": 0.0,
         "wrist_roll": 0.0,
     },
     "open_hand": {
@@ -334,14 +331,11 @@ class ArmController:
 
     def move(self, label, targets=None, duration=0.45, note=None):
         targets = dict(targets or {})
-        for motor_name in targets:
-            if motor_name not in SAFE_LIMITS:
-                raise ValueError("Unknown motor '{}'".format(motor_name))
-
         clamped_targets = {}
         for motor_name, value in targets.items():
-            low, high = SAFE_LIMITS[motor_name]
-            clamped_targets[motor_name] = clamp(float(value), low, high)
+            if motor_name in SAFE_LIMITS:
+                low, high = SAFE_LIMITS[motor_name]
+                clamped_targets[motor_name] = clamp(float(value), low, high)
 
         self.current.update(clamped_targets)
         self.step_index += 1

@@ -29,9 +29,6 @@ MOTOR_PORTS = {
     "ring": Port.D,
     "pinky": Port.E,
     "yaw": Port.F,
-    # A single SPIKE Prime hub has no extra ports for these:
-    # "wrist_pitch": Port.A,
-    # "wrist_roll": Port.B,
 }
 
 MOTOR_ORDER = (
@@ -41,7 +38,6 @@ MOTOR_ORDER = (
     "ring",
     "pinky",
     "yaw",
-    "wrist_pitch",
     "wrist_roll",
 )
 
@@ -52,7 +48,6 @@ MOTOR_SPEED = {
     "ring": 500,
     "pinky": 500,
     "yaw": 260,
-    "wrist_pitch": 260,
     "wrist_roll": 260,
 }
 
