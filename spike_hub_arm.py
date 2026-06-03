@@ -17,11 +17,12 @@ MOTOR_PORTS = {
 }
 
 # Dynamically map Port F based on hub name
-if hub_name == "monday":
-    MOTOR_PORTS["yaw"] = Port.F
-else:
-    # "friday"
-    MOTOR_PORTS["wrist_roll"] = Port.F
+# NOTE: YAW DISABLED
+# if hub_name == "monday":
+#     MOTOR_PORTS["yaw"] = Port.F
+# else:
+#     "friday"
+MOTOR_PORTS["wrist_roll"] = Port.F
 
 # Initialize connected motors
 motors = {}
