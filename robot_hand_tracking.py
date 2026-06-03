@@ -11,6 +11,7 @@ from robot_arm_view import RobotArmIsoView, RobotRollMapper, select_primary_hand
 from Roboarm_tasks.task_runtime import BASE_POSES, clamp
 
 COMMAND_FILE = "ble_command.txt"
+MAX_FINGER_CURL = 450.0
 
 
 HUD_BG = (18, 18, 28)
@@ -85,7 +86,7 @@ def parse_args():
         help="Smoothing factor for displayed robot fingers. Higher is more responsive.",
     )
     parser.add_argument(
-        "--roll-deadband",
+        "--roll-tolerance",
         type=float,
         default=1.5,
         help="Degrees around neutral to command as zero roll.",
@@ -100,7 +101,7 @@ def parse_args():
     parser.add_argument(
         "--update-rate-ms",
         type=int,
-        default=500,
+        default=25,
         help="Milliseconds between console updates.",
     )
     parser.add_argument(
@@ -114,6 +115,19 @@ def parse_args():
         default=15.0,
         help="Seconds to wait for BLE hub connection.",
     )
+    # Motor Scaling Factors
+    parser.add_argument("--scale-yaw", type=float, default=1.5, help="Scaling factor for elbow yaw.")
+    parser.add_argument("--scale-roll", type=float, default=1.0, help="Scaling factor for wrist roll.")
+    parser.add_argument("--scale-thumb", type=float, default=-1.5, help="Scaling factor for thumb.")
+    parser.add_argument("--scale-index", type=float, default=1.5, help="Scaling factor for index finger.")
+    parser.add_argument("--scale-middle", type=float, default=1.5, help="Scaling factor for middle finger.")
+    parser.add_argument("--scale-ring", type=float, default=1.5, help="Scaling factor for ring finger.")
+    parser.add_argument("--scale-pinky", type=float, default=1.5, help="Scaling factor for pinky finger.")
+
+    # Roll Snapping
+    parser.add_argument("--snap-roll", action="store_true", help="Snap wrist roll to fixed values instead of continuous tracking.")
+    parser.add_argument("--snap-roll-value", type=float, default=120.0, help="The degree value to snap to when --snap-roll is active.")
+    
     return parser.parse_args()
 
 
@@ -191,7 +205,7 @@ def main():
         smoothing=args.roll_smoothing,
         yaw_smoothing=args.yaw_smoothing,
         finger_smoothing=args.finger_smoothing,
-        deadband_deg=args.roll_deadband,
+        deadband_deg=args.roll_tolerance,
     )
     robot_view = RobotArmIsoView(width=args.robot_panel_width)
 
@@ -272,13 +286,43 @@ def main():
                 if (now - last_send_time) * 1000 >= args.update_rate_ms:
                     last_send_time = now
                     targets = dict(BASE_POSES["neutral"])
-                    targets["yaw"] = robot_state["command_yaw_deg"]
-                    targets["wrist_roll"] = robot_state["command_roll_deg"]
+                    
+                    # Apply scaling and clamping to Yaw/Roll
+                    targets["yaw"] = clamp(
+                        robot_state["command_yaw_deg"] * args.scale_yaw,
+                        -args.yaw_limit,
+                        args.yaw_limit
+                    )
+                    
+                    # Handle Roll Snapping or Continuous Tracking
+                    raw_roll = robot_state["command_roll_deg"] * args.scale_roll
+                    if args.snap_roll:
+                        if raw_roll > args.roll_tolerance:
+                            targets["wrist_roll"] = args.snap_roll_value
+                        elif raw_roll < -args.roll_tolerance:
+                            targets["wrist_roll"] = -args.snap_roll_value
+                        else:
+                            targets["wrist_roll"] = 0.0
+                    else:
+                        targets["wrist_roll"] = clamp(
+                            raw_roll,
+                            -args.roll_limit,
+                            args.roll_limit
+                        )
 
                     if robot_state["finger_pose"]:
+                        finger_scales = {
+                            "thumb": args.scale_thumb,
+                            "index": args.scale_index,
+                            "middle": args.scale_middle,
+                            "ring": args.scale_ring,
+                            "pinky": args.scale_pinky,
+                        }
                         for finger in ("thumb", "index", "middle", "ring", "pinky"):
                             curl = robot_state["finger_pose"].get(finger, 0.0)
-                            targets[finger] = clamp(curl * 115.0, 0.0, 115.0)
+                            # Multiply by scale first, then clamp using the constant
+                            scaled_curl = curl * MAX_FINGER_CURL * finger_scales[finger]
+                            targets[finger] = clamp(scaled_curl, -MAX_FINGER_CURL, MAX_FINGER_CURL)
 
                     # Format: yaw,roll,thumb,index,middle,ring,pinky
                     order = ("yaw", "wrist_roll", "thumb", "index", "middle", "ring", "pinky")
