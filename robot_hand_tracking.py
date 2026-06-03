@@ -1,4 +1,5 @@
 import argparse
+import os
 import sys
 import time
 
@@ -7,6 +8,9 @@ import mediapipe as mp
 import numpy as np
 
 from robot_arm_view import RobotArmIsoView, RobotRollMapper, select_primary_hand
+from Roboarm_tasks.task_runtime import BASE_POSES, clamp
+
+COMMAND_FILE = "ble_command.txt"
 
 
 HUD_BG = (18, 18, 28)
@@ -93,6 +97,23 @@ def parse_args():
         choices=(0, 1),
         help="0 is faster; 1 may be more accurate.",
     )
+    parser.add_argument(
+        "--update-rate-ms",
+        type=int,
+        default=500,
+        help="Milliseconds between console updates.",
+    )
+    parser.add_argument(
+        "--hub-name",
+        default="monday",
+        help="BLE name of the SPIKE hub (e.g. monday).",
+    )
+    parser.add_argument(
+        "--hub-timeout",
+        type=float,
+        default=15.0,
+        help="Seconds to wait for BLE hub connection.",
+    )
     return parser.parse_args()
 
 
@@ -174,7 +195,14 @@ def main():
     )
     robot_view = RobotArmIsoView(width=args.robot_panel_width)
 
+    print(f"File-based command mode active. Commands writing to: {COMMAND_FILE}")
+    # Ensure directory exists if there is one
+    cmd_dir = os.path.dirname(COMMAND_FILE)
+    if cmd_dir:
+        os.makedirs(cmd_dir, exist_ok=True)
+    
     prev_time = time.perf_counter()
+    last_send_time = 0.0
     fps = 0.0
 
     with mp_hands.Hands(
@@ -239,6 +267,43 @@ def main():
             prev_time = now
             if dt > 0:
                 fps = 0.9 * fps + 0.1 * (1.0 / dt) if fps else 1.0 / dt
+
+            if robot_state["has_signal"]:
+                if (now - last_send_time) * 1000 >= args.update_rate_ms:
+                    last_send_time = now
+                    targets = dict(BASE_POSES["neutral"])
+                    targets["yaw"] = robot_state["command_yaw_deg"]
+                    targets["wrist_roll"] = robot_state["command_roll_deg"]
+
+                    if robot_state["finger_pose"]:
+                        for finger in ("thumb", "index", "middle", "ring", "pinky"):
+                            curl = robot_state["finger_pose"].get(finger, 0.0)
+                            targets[finger] = clamp(curl * 115.0, 0.0, 115.0)
+
+                    # Format: yaw,roll,thumb,index,middle,ring,pinky
+                    order = ("yaw", "wrist_roll", "thumb", "index", "middle", "ring", "pinky")
+                    values = [str(int(targets.get(k, 0.0))) for k in order]
+                    cmd_line = ",".join(values)
+
+                    try:
+                        with open(COMMAND_FILE, "w") as f:
+                            f.write(cmd_line)
+                    except Exception as e:
+                        print(f"Error writing to command file: {e}")
+
+                    print(
+                        "[file] {} | [throttle] yaw: {:+05.1f} | roll: {:+05.1f} | "
+                        "thumb: {:03.0f} | idx: {:03.0f} | mid: {:03.0f} | ring: {:03.0f} | pinky: {:03.0f}".format(
+                            cmd_line,
+                            targets["yaw"],
+                            targets["wrist_roll"],
+                            targets["thumb"],
+                            targets["index"],
+                            targets["middle"],
+                            targets["ring"],
+                            targets["pinky"],
+                        )
+                    )
 
             draw_hud(frame, fps, primary_hand is not None)
             display_frame = np.hstack((frame, robot_panel))
