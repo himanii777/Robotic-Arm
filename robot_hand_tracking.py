@@ -118,11 +118,11 @@ def parse_args():
     # Motor Scaling Factors
     parser.add_argument("--scale-yaw", type=float, default=1.5, help="Scaling factor for elbow yaw.")
     parser.add_argument("--scale-roll", type=float, default=1.0, help="Scaling factor for wrist roll.")
-    parser.add_argument("--scale-thumb", type=float, default=-1.5, help="Scaling factor for thumb.")
-    parser.add_argument("--scale-index", type=float, default=1.5, help="Scaling factor for index finger.")
-    parser.add_argument("--scale-middle", type=float, default=1.5, help="Scaling factor for middle finger.")
-    parser.add_argument("--scale-ring", type=float, default=1.5, help="Scaling factor for ring finger.")
-    parser.add_argument("--scale-pinky", type=float, default=1.5, help="Scaling factor for pinky finger.")
+    parser.add_argument("--scale-thumb", type=float, default=-6.5, help="Scaling factor for thumb.")
+    parser.add_argument("--scale-index", type=float, default=2.5, help="Scaling factor for index finger.")
+    parser.add_argument("--scale-middle", type=float, default=2.5, help="Scaling factor for middle finger.")
+    parser.add_argument("--scale-ring", type=float, default=1.9, help="Scaling factor for ring finger.")
+    parser.add_argument("--scale-pinky", type=float, default=1.9, help="Scaling factor for pinky finger.")
 
     # Roll Snapping
     parser.add_argument("--snap-roll", action="store_true", help="Snap wrist roll to fixed values instead of continuous tracking.")
